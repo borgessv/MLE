@@ -7,8 +7,6 @@ Date: 16-02-2023
 Description: creation of a class for a linear SVM to be used by main.py. 
 """
 import numpy as np
-import quadprog
-import cvxopt
 import qpsolvers
 from utils import normalization
 
@@ -30,7 +28,7 @@ class LinearSVM:
         else:
             raise Exception('"seed" must be "False" or an integer!')
     
-        if self.shuffle is True:                                                # shuffles dataset (if applicable)
+        if self.shuffle:                                                        # shuffles dataset (if applicable)
             np.random.shuffle(self.raw_data)  
             
         x_raw = self.raw_data[:,:-1]                                            
@@ -55,7 +53,7 @@ class LinearSVM:
         self.train_data = self.raw_data[:int(np.ceil(self.train_split*self.raw_data.shape[0])), :]
         self.test_data = self.raw_data[int(np.ceil(self.train_split*self.raw_data.shape[0])):, :]
         
-        if self.normalize is True:                                              # normalizes features (if applicable)
+        if self.normalize:                                                      # normalizes features (if applicable)
             x_train = normalization(self.raw_data, self.train_data[:,:-1])    
         else:
             x_train = self.train_data[:,:-1]
@@ -63,59 +61,28 @@ class LinearSVM:
         self.train_data = np.column_stack((x_train, y_train))
         return
 
-    def dual_cost_function(self):                                               # Dual cost function for optimization: min 1/2*lambda.T*P*lambda + q.T*lambda 
+    def solve_qp(self, solver="quadprog", eps_lm=1e-3, **kwargs): 
+        if solver not in qpsolvers.available_solvers:
+            raise Exception("The specified QP solver is not available!")              
         x, y = self.train_data[:,:-1], self.train_data[:,-1]
         M = len(y)
         y = np.reshape(y, (-1, 1))
+        
+        # Dual cost function for optimization: min 1/2*lambda.T*P*lambda + q.T*lambda:
         P = (y@y.T)*(x@x.T)                                                     # matrix in the quadratic term of cost function
-        q = np.ones(M)                                                          # vector in the linear term of cost function
-        G = np.eye(M)                                                           # inequality constraint lambda_i >= 0  --> G >= h
+        q = -np.ones(M)                                                         # vector in the linear term of cost function
+        G = -np.eye(M)                                                          # inequality constraint lambda_i >= 0  --> G >= h
         h = np.zeros(M)
         A = y.T                                                                 # equality constraint sum(y_i*lambda_i) = 0  --> A*lambda = b
         b = np.zeros(1)       
-        return P, q, G, h, A, b
-
-    def cvxopt_solve_qp(self, eps_lm=1e-3):                                     # solves the optimization problem using 'cvxopt' algorithm
-        P, q, G, h, A, b = self.dual_cost_function()
-        P = 0.5*(P + P.T)                                                       # makes sure P is symmetric
-        args = [cvxopt.matrix(P), cvxopt.matrix(q)]
-        args.extend([cvxopt.matrix(G), cvxopt.matrix(h)])
-        if A is not None:
-            args.extend([cvxopt.matrix(A), cvxopt.matrix(b)])
-        sol = cvxopt.solvers.qp(*args)
-        lm = -np.array(sol['x']).reshape((P.shape[1],))                         # minus sign necessary because the actual problem is maximization and not minimization
-        sp = np.where(lm > eps_lm)
-        if lm[sp] is None:
-            raise Exception("The criteria 'eps_lm' is probably too high!") 
-        if 'optimal' not in sol['status']:
-            raise Exception("The data are not linearly separable!")
-            return None
-        return lm, sp 
+        P = P + 1e-10*np.eye(P.shape[0])                                        # Applies a small disturbance to guarantee P is positive definite  
         
-    def quadprog_solve_qp(self, eps_lm=1e-3):                                   # solves the optimization problem using 'quadprog' algorithm
-        P, q, G, h, A, b = self.dual_cost_function()    
-        qp_G = 0.5*(P + P.T) + 1e-9*np.eye(P.shape[0])                          # makes sure P is symmetric
-        qp_a = -q
-        if A is not None:
-            qp_C = -np.vstack([A, G]).T
-            qp_b = -np.hstack([b, h])
-            meq = A.shape[0]
-        else: 
-            qp_C = -G.T
-            qp_b = -h
-            meq = 0
-        lm = -quadprog.solve_qp(qp_G, qp_a, qp_C, qp_b, meq)[0]                 # minus sign necessary because the actual problem is maximization and not minimization
-        sp = np.where(lm > eps_lm)
-        if lm[sp] is None:
-            raise Exception("The criteria 'eps_lm' is probably too high!")
-        return lm, sp
-    
-    def solve_qp(self, solver="quadprog", eps_lm=1e-3):
-        if solver not in qpsolvers.available_solvers:
-            raise Exception("The specified QP solver is not available!")
-        P, q, G, h, A, b = self.dual_cost_function()   
-        P = 0.5*(P + P.T) + 1e-10*np.eye(P.shape[0])
-        lm = -qpsolvers.solve_qp(P, q, G, h, A, b, solver=solver)
+        if self.margin == "hard":
+            lm = qpsolvers.solve_qp(P, q, G=G, h=h, A=A, b=b, solver=solver)
+        else:
+            lb = np.zeros(M)
+            ub = kwargs.get('C')*np.ones(M)
+            lm = qpsolvers.solve_qp(P, q, A=A, b=b, lb=lb, ub=ub, solver=solver)
         sp = np.where(lm > eps_lm)
         if lm[sp] is None:
             raise Exception("The criteria 'eps_lm' is probably too high!")
@@ -132,4 +99,3 @@ class LinearSVM:
         y_new = np.sign(self.w@x_new.T + self.b)
         return y_new
         
-    

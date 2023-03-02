@@ -9,22 +9,22 @@ Description: creation of a auxiliary functions to be used by the class LinearSVM
 """
 import numpy as np
 
-def create_dataset(n=500, c1_ratio=0.5, mean=1, cov_factor=0.1, **kwargs):
+def create_2Ddataset(n=500, c1_ratio=0.5, mean=1, cov_factor=0.1, **kwargs):
     if 'seed' in kwargs:
         np.random.seed(kwargs.get('seed'))
         
     c1_mean = [-mean, -mean]
-    c1_cov = [[cov_factor*np.abs(mean), 0], [0, cov_factor*np.abs(mean)]]  # diagonal covariance
-    x1_c1, x2_c1 = np.random.multivariate_normal(c1_mean, c1_cov, int(np.ceil(c1_ratio*n))).T
+    c1_cov = [[cov_factor*np.abs(mean), 0], [0, cov_factor*np.abs(mean)]]       # diagonal covariance
+    x1_c1, x2_c1 = np.random.multivariate_normal(c1_mean, c1_cov, 
+                                                 int(np.ceil(c1_ratio*n))).T
     c1_data = np.column_stack((x1_c1, x2_c1, np.ones(len(x1_c1))))
 
     c2_mean = [mean, mean]
-    c2_cov = [[cov_factor*np.abs(mean), 0], [0, cov_factor*np.abs(mean)]]  # diagonal covariance
-    x1_c2, x2_c2 = np.random.multivariate_normal(c2_mean, c2_cov, int(n - np.ceil(c1_ratio*n))).T
+    c2_cov = [[cov_factor*np.abs(mean), 0], [0, cov_factor*np.abs(mean)]]       # diagonal covariance
+    x1_c2, x2_c2 = np.random.multivariate_normal(c2_mean, c2_cov, 
+                                                 int(n-np.ceil(c1_ratio*n))).T
     c2_data = np.column_stack((x1_c2, x2_c2, -1.*np.ones(len(x1_c2))))
-
-    raw_data = np.row_stack((c1_data, c2_data))
-    return raw_data
+    return np.row_stack((c1_data, c2_data))
 
 def normalization(data, x):
     x_raw = data[:,:-1]
