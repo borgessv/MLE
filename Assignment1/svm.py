@@ -71,18 +71,19 @@ class LinearSVM:
         # Dual cost function for optimization: min 1/2*lambda.T*P*lambda + q.T*lambda:
         P = (y@y.T)*(x@x.T)                                                     # matrix in the quadratic term of cost function
         q = -np.ones(M)                                                         # vector in the linear term of cost function
-        G = -np.eye(M)                                                          # inequality constraint lambda_i >= 0  --> G >= h
-        h = np.zeros(M)
-        A = y.T                                                                 # equality constraint sum(y_i*lambda_i) = 0  --> A*lambda = b
+        A = y.T                                                                 # equality constraint y.T*lambda = 0  --> A*x = b
         b = np.zeros(1)       
         P = P + 1e-10*np.eye(P.shape[0])                                        # Applies a small disturbance to guarantee P is positive definite  
         
         if self.margin == "hard":
-            lm = qpsolvers.solve_qp(P, q, G=G, h=h, A=A, b=b, solver=solver)
+            G = -np.eye(y.shape[0])                                             # inequality constraint -lambda <= 0  --> G <= h
+            h = np.zeros(y.shape[0])
         else:
-            lb = np.zeros(M)
-            ub = kwargs.get('C')*np.ones(M)
-            lm = qpsolvers.solve_qp(P, q, A=A, b=b, lb=lb, ub=ub, solver=solver)
+            C = kwargs.get('C')
+            G = np.vstack((-np.eye(y.shape[0]), np.eye(y.shape[0])))            # inequality constraint -lambda <= 0 & lambda <= C  --> Gx <= h
+            h = np.hstack((np.zeros(y.shape[0]), C*np.ones(y.shape[0])))
+        
+        lm = qpsolvers.solve_qp(P, q, G, h, A, b, solver=solver)
         sp = np.where(lm > eps_lm)
         if lm[sp] is None:
             raise Exception("The criteria 'eps_lm' is probably too high!")
