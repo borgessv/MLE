@@ -4,7 +4,7 @@ Assignment 1: Support Vector Machines (SVM)
 Author: Vitor Borges Santos
 Date: 16-02-2023
 
-Description: creation of a auxiliary functions to be used by the class LinearSVM
+Description: creation of a auxiliary functions to be used by the class SVM
              and by the main.py file.  
 """
 import numpy as np

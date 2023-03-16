@@ -2,7 +2,7 @@
 Course: Machine Learning in Engineering
 Assignment 2: Problem 2
 Author: Vitor Borges Santos
-Date: 02-03-2023
+Date: 16-03-2023
 
 Description: creation of a class for a linear SVM to be used by main.py. 
 """

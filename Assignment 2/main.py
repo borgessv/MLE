@@ -1,6 +1,6 @@
 """
 Course: Machine Learning in Engineering
-Assignment 2 - Problem 2
+Assignment 2
 Author: Vitor Borges Santos
 Date: 16-03-2023
 
